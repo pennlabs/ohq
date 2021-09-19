@@ -21,6 +21,7 @@
         "@sentry/node": "^5.21.4",
         "apexcharts": "^3.23.1",
         "chart.js": "^2.9.3",
+        "diff": "^5.0.0",
         "express": "^4.17.1",
         "http-proxy-middleware": "^1.0.5",
         "libphonenumber-js": "^1.7.56",
@@ -34,11 +35,14 @@
         "react-dropzone": "^11.0.2",
         "react-ga": "^3.2.1",
         "react-select": "^3.1.0",
+        "remark-parse": "^10.0.0",
+        "remark-rehype": "^9.0.0",
         "semantic-ui-css": "^2.4.1",
         "semantic-ui-react": "^1.1.0",
         "swr": "^0.3.11",
         "typescript": "^3.9.7",
         "uifx": "^2.0.7",
+        "unified": "^10.1.0",
         "url-loader": "^4.1.0"
     },
     "devDependencies": {

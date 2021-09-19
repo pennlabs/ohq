@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { Grid, Header, Segment, Message } from "semantic-ui-react";
+import { Grid, Header, Segment, Message, Label } from "semantic-ui-react";
 import Alert from "@material-ui/lab/Alert";
 import Snackbar from "@material-ui/core/Snackbar";
 import InstructorCourses from "./InstructorCourses";
@@ -10,6 +10,7 @@ import { Kind, UserMembership } from "../../../types";
 import { useMemberships } from "../../../hooks/data-fetching/dashboard";
 import { isLeadershipRole } from "../../../utils/enums";
 import { FALL_2021_TRANSITION_MESSAGE_TOKEN } from "../../../constants";
+import ModalShowNewChanges from "./Modals/ModalShowNewChanges";
 
 // TODO: try to readd new user stuff, rip out loading stuff
 const Dashboard = () => {
@@ -47,6 +48,22 @@ const Dashboard = () => {
         getMemberships(false).length > 0 || canCreateCourse;
     const [toast] = useState({ message: "", success: true });
     const [toastOpen, setToastOpen] = useState(false);
+
+    const [logToast] = useState({
+        message: "View new changes to OHQ.io",
+        success: true,
+    });
+    const [logOpen, setLogOpen] = useState(false);
+    const [logModal, setLogModal] = useState(false);
+
+    useEffect(() => {
+        Promise.all([
+            fetch("./changelog.md").then((md) => md.text()),
+            `${window.localStorage.getItem("changelogsaved")}`,
+        ]).then(([updatedMd, savedMd]) => {
+            if (updatedMd !== savedMd) setLogOpen(true);
+        });
+    }, []);
 
     return (
         <Grid.Column
@@ -129,7 +146,28 @@ const Dashboard = () => {
                     {toast.message}
                 </Alert>
             </Snackbar>
+
+            <Snackbar
+                open={logOpen}
+                autoHideDuration={6000}
+                onClose={() => setLogOpen(false)}
+            >
+                <Alert severity="info" onClose={() => setLogOpen(false)}>
+                    <Label
+                        style={{ cursor: "pointer" }}
+                        color="blue"
+                        onClick={() => {
+                            setLogOpen(false);
+                            setLogModal(true);
+                        }}
+                    >
+                        {logToast.message}
+                    </Label>
+                </Alert>
+            </Snackbar>
+
             <Footer />
+            <ModalShowNewChanges openModal={logModal} setOpen={setLogModal} />
         </Grid.Column>
     );
 };

@@ -49,6 +49,19 @@ const Sidebar = () => {
                             color="blue"
                         />
                     </Link>
+                    <Link href="/changelog" as="/changelog">
+                        <Menu.Item
+                            style={{
+                                whiteSpace: "nowrap",
+                                textOverflow: "ellipsis",
+                                overflow: "hidden",
+                            }}
+                            name="Change Log"
+                            icon="file text"
+                            active={router.pathname === "/changelog"}
+                            color="blue"
+                        />
+                    </Link>
                     <Link href="/faq" as="/faq">
                         <Menu.Item
                             style={{
@@ -72,6 +85,7 @@ const Sidebar = () => {
                 <a
                     href="https://airtable.com/shrIZxIjyAE3gOUSg"
                     target="_blank"
+                    rel="noreferrer"
                 >
                     <p>Feedback</p>
                 </a>
