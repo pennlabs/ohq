@@ -205,6 +205,7 @@ class QuestionSerializer(QueueRouteMixin):
             "tags",
             "note",
             "resolved_note",
+            "student_descriptor",
         )
         read_only_fields = (
             "time_asked",
@@ -276,6 +277,8 @@ class QuestionSerializer(QueueRouteMixin):
                         instance.tags.add(tag)
                     except ObjectDoesNotExist:
                         continue
+            if "student_descriptor" in validated_data:
+                instance.student_descriptor = validated_data["student_descriptor"]
             # If a student modifies a question, discard any note added by a TA and mark as resolved
             instance.note = ""
             instance.resolved_note = True
@@ -300,8 +303,6 @@ class QuestionSerializer(QueueRouteMixin):
             except ObjectDoesNotExist:
                 continue
         return question
-        validated_data["note"] = ""
-        return super().create(validated_data)
 
 
 class MembershipPrivateSerializer(CourseRouteMixin):

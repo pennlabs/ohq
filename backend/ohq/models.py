@@ -280,6 +280,7 @@ class Question(models.Model):
 
     should_send_up_soon_notification = models.BooleanField(default=False)
     tags = models.ManyToManyField(Tag, blank=True)
+    student_descriptor = models.CharField(max_length=255, blank=True, null=True)
 
 
 class QueueStatistic(models.Model):

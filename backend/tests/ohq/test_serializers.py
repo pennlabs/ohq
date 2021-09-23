@@ -223,14 +223,21 @@ class QuestionSerializerTestCase(TestCase):
 
         text = "Different"
         url = "https://example.com"
+        student_descriptor = "In the back"
         self.client.force_authenticate(user=self.student)
         self.client.patch(
             reverse("ohq:question-detail", args=[self.course.id, self.queue.id, self.question.id]),
-            {"text": text, "video_chat_url": url, "tags": [{"name": "Tag"}]},
+            {
+                "text": text,
+                "video_chat_url": url,
+                "tags": [{"name": "Tag"}],
+                "student_descriptor": student_descriptor,
+            },
         )
         self.question.refresh_from_db()
         self.assertEqual(text, self.question.text)
         self.assertEqual(url, self.question.video_chat_url)
+        self.assertEqual(student_descriptor, self.question.student_descriptor)
         mock_delay.assert_not_called()
 
     def test_student_update_note(self, mock_delay):
