@@ -73,8 +73,6 @@ class Course(models.Model):
     semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
     archived = models.BooleanField(default=False)
     invite_only = models.BooleanField(default=False)
-    video_chat_enabled = models.BooleanField(default=False)
-    require_video_chat_url_on_questions = models.BooleanField(default=False)
     members = models.ManyToManyField(User, through="Membership", through_fields=("course", "user"))
 
     # MAX_NUMBER_COURSE_USERS = 1000

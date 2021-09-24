@@ -35,13 +35,12 @@ courses = [
                         "should_send_up_soon_notification": True,
                     },
                 ],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
         ],
         "semester": {"year": 2020, "term": Semester.TERM_FALL},
         "archived": False,
         "invite_only": False,
-        "video_chat_enabled": False,
-        "require_video_chat_url_on_questions": True,
     },
     {
         "course_code": "101",
@@ -67,13 +66,12 @@ courses = [
                         "should_send_up_soon_notification": False,
                     },
                 ],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
         ],
         "semester": {"year": 2020, "term": Semester.TERM_SUMMER},
         "archived": False,
         "invite_only": False,
-        "video_chat_enabled": False,
-        "require_video_chat_url_on_questions": True,
     },
     {
         "course_code": "200",
@@ -84,8 +82,6 @@ courses = [
         "semester": {"year": 2020, "term": Semester.TERM_FALL},
         "archived": False,
         "invite_only": True,
-        "video_chat_enabled": True,
-        "require_video_chat_url_on_questions": True,
     },
     {
         "course_code": "700",
@@ -125,6 +121,7 @@ courses = [
                         "should_send_up_soon_notification": False,
                     },
                 ],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
             {
                 "name": "Morgan Stanley Questions",
@@ -133,6 +130,7 @@ courses = [
                 "estimated_wait_time": 0,
                 "active": True,
                 "questions": [],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
             {
                 "name": "Questions for Rejects - Will always be closed",
@@ -141,13 +139,12 @@ courses = [
                 "estimated_wait_time": 0,
                 "active": False,
                 "questions": [],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
         ],
         "semester": {"year": 2020, "term": Semester.TERM_SUMMER},
         "archived": False,
         "invite_only": False,
-        "video_chat_enabled": False,
-        "require_video_chat_url_on_questions": True,
     },
     {
         "course_code": "621",
@@ -188,6 +185,7 @@ courses = [
                         "should_send_up_soon_notification": False,
                     },
                 ],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
             {
                 "name": "Other Questions",
@@ -213,6 +211,7 @@ courses = [
                         "should_send_up_soon_notification": True,
                     },
                 ],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
             {
                 "name": "We are archiving the bad vibes",
@@ -221,13 +220,12 @@ courses = [
                 "estimated_wait_time": 0,
                 "active": False,
                 "questions": [],
+                "video_chat_setting": Queue.VIDEO_REQUIRED,
             },
         ],
         "semester": {"year": 2020, "term": Semester.TERM_SPRING},
         "archived": False,
         "invite_only": True,
-        "video_chat_enabled": False,
-        "require_video_chat_url_on_questions": True,
     },
     {
         "course_code": "500",
@@ -238,8 +236,6 @@ courses = [
         "archived": True,
         "queues": [],
         "invite_only": False,
-        "video_chat_enabled": True,
-        "require_video_chat_url_on_questions": True,
     },
 ]
 
@@ -284,14 +280,13 @@ class Command(BaseCommand):
                 obj.first_name = first
                 obj.last_name = last
                 obj.is_staff = True
+                obj.set_password("pennlabs")
                 obj.save()
                 user_objs.append(obj)
 
         # create TJeff as superuser
         tjeff = user_objs[3]
         tjeff.is_superuser = True
-        tjeff.set_password("password")
-        tjeff.is_staff = True
         tjeff.save()
 
         # create profiles for each user
