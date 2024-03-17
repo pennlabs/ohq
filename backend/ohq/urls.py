@@ -6,6 +6,8 @@ from ohq.views import (
     AnnouncementViewSet,
     CourseStatisticView,
     CourseViewSet,
+    DocumentViewSet,
+    DocumentCreateView,
     EventViewSet,
     MassInviteView,
     MembershipInviteViewSet,
@@ -19,6 +21,8 @@ from ohq.views import (
     SemesterViewSet,
     TagViewSet,
     UserView,
+    VectorDBViewSet,
+    VectorSearchView,
 )
 
 
@@ -36,9 +40,13 @@ course_router.register("members", MembershipViewSet, basename="member")
 course_router.register("invites", MembershipInviteViewSet, basename="invite")
 course_router.register("announcements", AnnouncementViewSet, basename="announcement")
 course_router.register("tags", TagViewSet, basename="tag")
+course_router.register("vector_dbs", VectorDBViewSet, basename="vector_dbs")
 
 queue_router = routers.NestedSimpleRouter(course_router, "queues", lookup="queue")
 queue_router.register("questions", QuestionViewSet, basename="question")
+
+vector_db_router = routers.NestedSimpleRouter(course_router, "vector_dbs", lookup="vector_dbs")
+vector_db_router.register("documents", DocumentViewSet, basename="documents")
 
 realtime_router = RealtimeRouter()
 realtime_router.register(QuestionViewSet)
@@ -61,6 +69,16 @@ additional_urls = [
         CourseStatisticView.as_view(),
         name="course-statistic",
     ),
+    path(
+        "courses/<slug:course_pk>/vector_dbs/create",
+        DocumentCreateView.as_view(),
+        name="vectordb-create-documents",
+    ),
+    path(
+        "courses/<slug:course_pk>/vector_dbs/search",
+        VectorSearchView.as_view(),
+        name="document-search",
+    )
 ]
 
-urlpatterns = router.urls + course_router.urls + queue_router.urls + additional_urls
+urlpatterns = router.urls + course_router.urls + queue_router.urls + vector_db_router.urls + additional_urls

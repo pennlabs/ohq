@@ -14,6 +14,7 @@ from ohq.models import (
     Announcement,
     Course,
     CourseStatistic,
+    Document,
     Membership,
     MembershipInvite,
     Profile,
@@ -22,6 +23,7 @@ from ohq.models import (
     QueueStatistic,
     Semester,
     Tag,
+    VectorDB,
 )
 from ohq.sms import sendSMSVerification
 from ohq.tasks import sendUpNextNotificationTask
@@ -574,3 +576,13 @@ class OccurrenceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Occurrence
         fields = ("id", "title", "description", "start", "end", "cancelled", "event")
+
+class DocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Document
+        fields = ("id", "name", "vector_db")
+
+class VectorDBSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VectorDB
+        fields = ("id", "name", "course", "time_updated", "top_k")

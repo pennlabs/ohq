@@ -175,6 +175,14 @@ TWILIO_SID = os.environ.get("TWILIO_SID", "")
 TWILIO_AUTH_TOKEN = os.environ.get("TWILIO_TOKEN", "")
 TWILIO_NUMBER = os.environ.get("TWILIO_NUMBER", "")
 
+# Pinecone Settings
+
+PINECONE_API_KEY=os.environ.get("PINECONE_API_KEY", "")
+
+# OpenAI Settings
+
+OPENAI_API_KEY=os.environ.get("OPENAI_API_KEY", "")
+
 # Redis URL used for celery, channels and general caching.
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost")
 

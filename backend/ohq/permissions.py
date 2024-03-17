@@ -503,3 +503,111 @@ class OccurrencePermission(permissions.BasePermission):
             return True
 
         return True
+
+class DocumentCreatePermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+
+        membership = Membership.objects.filter(
+            course=view.kwargs["course_pk"], user=request.user
+        ).first()
+
+        return membership.is_leadership
+
+        # # Non-Students can't do anything
+        # if membership is None:
+        #     return False
+
+        # if view.action == "retrieve":
+        #     return membership.is_ta or membership.is_leadership
+
+        # # Head TAs+ can make changes
+        # if view.action in ["create", "destroy", "update", "partial_update"]:
+        #     return membership.is_leadership
+
+class DocumentPermission(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        
+        membership = Membership.objects.get(course=view.kwargs["course_pk"], user=request.user)
+
+        if view.action == "retrieve":
+            return membership.is_ta or membership.is_leadership
+
+        if view.action in ["create", "destroy", "partial_update", "update"]:
+            return membership.is_leadership
+        
+        return False
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+
+        membership = Membership.objects.filter(
+            course=view.kwargs["course_pk"], user=request.user
+        ).first()
+
+        # Non-Students can't do anything
+        if membership is None:
+            return False
+
+        if view.action == "retrieve":
+            return membership.is_ta or membership.is_leadership
+
+        # Head TAs+ can make changes
+        if view.action in ["create", "destroy", "update", "partial_update"]:
+            return membership.is_leadership
+        
+class VectorSearchPermission(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+
+        membership = Membership.objects.filter(
+            course=view.kwargs["course_pk"], user=request.user
+        ).first()
+
+        return membership.is_ta or membership.is_leadership
+
+        # # Non-Students can't do anything
+        # if membership is None:
+        #     return False
+
+        # if view.action == "retrieve":
+        #     return membership.is_ta or membership.is_leadership
+
+        # # Head TAs+ can make changes
+        # if view.action in ["create", "destroy", "update", "partial_update"]:
+        #     return membership.is_leadership
+    
+class VectorDBPermission(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+
+        membership = Membership.objects.get(course=view.kwargs["course_pk"], user=request.user)
+
+        if view.action == "retrieve":
+            return membership.is_ta or membership.is_leadership
+
+        if view.action in ["create", "destroy", "partial_update", "update"]:
+            return membership.is_leadership
+        
+        return False
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+
+        membership = Membership.objects.filter(
+            course=view.kwargs["course_pk"], user=request.user
+        ).first()
+
+        # Non-Students can't do anything
+        if membership is None:
+            return False
+
+        if view.action == "retrieve":
+            return membership.is_ta or membership.is_leadership
+
+        # Head TAs+ can make changes
+        if view.action in ["create", "destroy", "update", "partial_update"]:
+            return membership.is_leadership

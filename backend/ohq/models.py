@@ -411,3 +411,27 @@ class Announcement(models.Model):
     author = models.ForeignKey(User, related_name="announcements", on_delete=models.CASCADE)
     time_updated = models.DateTimeField(auto_now=True)
     course = models.ForeignKey(Course, related_name="announcements", on_delete=models.CASCADE)
+
+
+class VectorDB(models.Model):
+
+    name = models.CharField(max_length=255)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    time_updated = models.DateTimeField(auto_now=True)
+    top_k = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["name", "course"], name="unique_VectorDB")]
+    
+    def __str__(self):
+      return f"{self.course}: {self.name} Vector DB"
+
+class Document(models.Model):
+    name = models.CharField(max_length=255)
+    vector_db = models.ForeignKey(VectorDB, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["name"], name="unique_document")]
+
+    def __str__(self):
+        return f"{self.course}: {self.name}"

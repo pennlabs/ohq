@@ -1,6 +1,13 @@
 import math
 import re
+import PyPDF2
+import tiktoken
+import os
 from datetime import datetime, timedelta
+
+encoding = tiktoken.get_encoding("cl100k_base") # ideal encoding for gpt3.5-turbo
+
+from ohq import vector_db
 
 from django.contrib.auth import get_user_model
 from django.core.validators import ValidationError
@@ -38,6 +45,7 @@ from ohq.models import (
     Announcement,
     Course,
     CourseStatistic,
+    Document,
     Membership,
     MembershipInvite,
     Question,
@@ -45,12 +53,15 @@ from ohq.models import (
     QueueStatistic,
     Semester,
     Tag,
+    VectorDB,
 )
 from ohq.pagination import QuestionSearchPagination
 from ohq.permissions import (
     AnnouncementPermission,
     CoursePermission,
     CourseStatisticPermission,
+    DocumentPermission,
+    DocumentCreatePermission,
     EventPermission,
     IsSuperuser,
     MassInvitePermission,
@@ -62,6 +73,8 @@ from ohq.permissions import (
     QueuePermission,
     QueueStatisticPermission,
     TagPermission,
+    VectorDBPermission,
+    VectorSearchPermission,
 )
 from ohq.schemas import EventSchema, MassInviteSchema, OccurrenceSchema
 from ohq.serializers import (
@@ -69,6 +82,7 @@ from ohq.serializers import (
     CourseCreateSerializer,
     CourseSerializer,
     CourseStatisticSerializer,
+    DocumentSerializer,
     EventSerializer,
     MembershipInviteSerializer,
     MembershipSerializer,
@@ -80,6 +94,7 @@ from ohq.serializers import (
     SemesterSerializer,
     TagSerializer,
     UserPrivateSerializer,
+    VectorDBSerializer,
 )
 from ohq.sms import sendSMSVerification
 
@@ -774,3 +789,109 @@ class OccurrenceViewSet(
 
     def get_queryset(self):
         return Occurrence.objects.filter(pk=self.kwargs["pk"])
+    
+class DocumentCreateView(generics.CreateAPIView):
+
+    # permission_classes = [DocumentCreatePermission | IsSuperuser]
+    serializer_class = DocumentSerializer
+
+    def post(self, request, *args, **kwargs):
+
+        file = request.FILES['file']
+
+        file_name, file_extension = os.path.splitext(file.name)
+        file_type = file_extension[1:]
+        cleaned_file_name = vector_db.sanitize_to_ascii(file_name)
+
+        course = Course.objects.get(id=self.kwargs["course_pk"])
+        
+        if file_type == 'pdf':
+            pdfReader = PyPDF2.PdfReader(file)
+            count = len(pdfReader.pages)
+            text = ""
+            for i in range(count):
+                page = pdfReader.pages[i]
+                output = page.extract_text()
+                text += output
+        elif file_type == 'txt':
+            try:
+                text = file.read().decode('utf-8')
+            except UnicodeDecodeError:
+                text = file.read().decode('latin-1')
+        else:
+            text = request.data.get('text', '')
+        
+        chunks = vector_db.chunk_text(text)
+
+        # attach metadata to each chunk
+        chunks_with_metadata = []
+        for chunk in chunks:
+            metadata = {
+                "course": str(course),
+                "document_name": cleaned_file_name,
+                "text": chunk,
+            }
+            chunks_with_metadata.append((chunk, metadata))
+
+        embeddings_with_metadata = {
+            f"{cleaned_file_name}_{i}": (vector_db.embed_vectors(chunk), metadata)
+            for i, (chunk, metadata) in enumerate(chunks_with_metadata)
+        }
+        vector_db.upload_vectors_with_metadata(embeddings_with_metadata, 100)
+
+        return Response(
+            data={
+                "detail": "success",
+            },
+            status=201,
+        )
+
+class DocumentViewSet(viewsets.ModelViewSet):
+
+    # permission_classes = [DocumentPermission | IsSuperuser]
+    serializer_class = DocumentSerializer
+
+    def get_queryset(self):
+        qs = Document.objects.filter(course=self.kwargs["course_pk"])
+        return prefetch(qs, self.serializer_class)
+
+class VectorSearchView(generics.ListAPIView):
+
+    # permission_classes = [VectorSearchPermission | IsSuperuser]
+    serializer_class = VectorDBSerializer
+
+    def get(self, request, course_pk=None):
+        query_term = request.GET.get('query_term')
+        metadata_query = request.GET.get('metadata_query')
+
+        if query_term is None:
+            return Response({"error": "A vector must be provided."}, status=400)
+        
+        if metadata_query is None:
+            query_response, vector_count = vector_db.search_index(query_term)
+        else:
+            query_response, vector_count = vector_db.search_index_with_metadata(query_term, metadata_query)
+
+        return Response(
+            data={
+                "detail": "success",
+                "vector_count": vector_count,
+                "query_response": query_response
+            },
+        )
+    
+    def get_queryset(self):
+        qs = VectorDB.objects.filter(
+            vector__in=Document.objects.filter(course=self.kwargs["course_pk"])
+        )
+        return prefetch(qs, self.serializer_class)
+
+
+class VectorDBViewSet(viewsets.ModelViewSet):
+
+    # permission_classes = [VectorDBPermission | IsSuperuser]
+    serializer_class = VectorDBSerializer
+
+    def get_queryset(self):
+        qs = VectorDB.objects.filter(course=self.kwargs["course_pk"])
+        return prefetch(qs, self.serializer_class)

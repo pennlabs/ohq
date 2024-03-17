@@ -8,9 +8,11 @@ from django.utils import timezone
 from djangorestframework_camel_case.util import camelize
 from rest_framework.test import APIClient
 from schedule.models import Event, Occurrence
+from django.core.files.uploadedfile import SimpleUploadedFile
 
-from ohq.models import Course, Membership, MembershipInvite, Question, Queue, Semester
+from ohq.models import Course, Document, Membership, MembershipInvite, Question, Queue, Semester
 from ohq.serializers import UserPrivateSerializer
+from ohq import vector_db
 
 
 User = get_user_model()
@@ -444,3 +446,55 @@ class OccurrenceViewTestCase(TestCase):
         occurrences = json.loads(response.content)
         self.assertEquals(1, len(occurrences))
         self.assertEquals(occurrences[0]["start"], new_start_date)
+
+class VectorDBTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.semester = Semester.objects.create(year=2020, term=Semester.TERM_SUMMER)
+        self.course = Course.objects.create(
+            course_code="000", department="Penn Labs", semester=self.semester
+        )
+        self.head_ta = User.objects.create(username="head_ta")
+        self.ta = User.objects.create(username="ta")
+        self.student = User.objects.create(username="student")
+        Membership.objects.create(
+            course=self.course, user=self.head_ta, kind=Membership.KIND_HEAD_TA
+        )
+        Membership.objects.create(course=self.course, user=self.ta, kind=Membership.KIND_TA)
+        Membership.objects.create(
+            course=self.course, user=self.student, kind=Membership.KIND_STUDENT
+        )
+    
+    def test_file_upload_and_vector_creation(self):
+        self.client.force_authenticate(user=self.head_ta)
+
+        file_content = b"This is a test document content."
+        uploaded_file = SimpleUploadedFile("test", file_content, content_type="pdf")
+
+        response = self.client.post(
+            reverse("ohq:vectordb-create-documents", kwargs={"course_pk": self.course.id}),
+            data={"file": uploaded_file},
+        )
+
+        print(response)
+
+        #  # Check if the document was created successfully
+        # self.assertEqual(response.status_code, 201)
+        # self.assertEqual(Document.objects.count(), 1)
+
+        # # document = Document.objects.first()
+
+        # # Test chunking and embedding
+        # chunks = vector_db.chunk_text(file_content.decode("utf-8"))
+        # self.assertEqual(len(chunks), 1)  # In this test, entire content is one chunk
+
+        # expected_embeddings = [vector_db.embed_vectors(chunk) for chunk in chunks]
+
+        # # Prepare metadata for chunks
+        # metadata = {
+        #     "course": str(self.course),
+        #     "document_name": vector_db.sanitize_to_ascii("test.txt"),
+        # }
+        # chunks_with_metadata = [(chunk, metadata) for chunk in chunks]
+
+        # vector_db.upload_vectors_with_metadata(chunks_with_metadata, batch_size=1)
