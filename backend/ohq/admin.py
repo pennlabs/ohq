@@ -4,6 +4,7 @@ from ohq.models import (
     Announcement,
     Course,
     CourseStatistic,
+    LlmSetting,
     Membership,
     MembershipInvite,
     Profile,
@@ -26,3 +27,4 @@ admin.site.register(Semester)
 admin.site.register(QueueStatistic)
 admin.site.register(Announcement)
 admin.site.register(Tag)
+admin.site.register(LlmSetting)

@@ -10,6 +10,8 @@ from ohq.views import (
     MassInviteView,
     MembershipInviteViewSet,
     MembershipViewSet,
+    LlmSettingViewSet,
+    LlmResponseViewSet,
     OccurrenceViewSet,
     QuestionSearchView,
     QuestionViewSet,
@@ -36,9 +38,13 @@ course_router.register("members", MembershipViewSet, basename="member")
 course_router.register("invites", MembershipInviteViewSet, basename="invite")
 course_router.register("announcements", AnnouncementViewSet, basename="announcement")
 course_router.register("tags", TagViewSet, basename="tag")
+course_router.register("llm", LlmSettingViewSet, basename="llm")
 
 queue_router = routers.NestedSimpleRouter(course_router, "queues", lookup="queue")
 queue_router.register("questions", QuestionViewSet, basename="question")
+
+question_router = routers.NestedSimpleRouter(queue_router, "questions", lookup="question")
+question_router.register("llm_response", LlmResponseViewSet, basename="llm_response")
 
 realtime_router = RealtimeRouter()
 realtime_router.register(QuestionViewSet)
@@ -63,4 +69,4 @@ additional_urls = [
     ),
 ]
 
-urlpatterns = router.urls + course_router.urls + queue_router.urls + additional_urls
+urlpatterns = router.urls + course_router.urls + queue_router.urls + question_router.urls + additional_urls

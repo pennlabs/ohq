@@ -9,7 +9,7 @@ from djangorestframework_camel_case.util import camelize
 from rest_framework.test import APIClient
 from schedule.models import Event, Occurrence
 
-from ohq.models import Course, Membership, MembershipInvite, Question, Queue, Semester
+from ohq.models import Course, Membership, MembershipInvite, Question, Queue, Semester, LlmSetting
 from ohq.serializers import UserPrivateSerializer
 
 
@@ -444,3 +444,63 @@ class OccurrenceViewTestCase(TestCase):
         occurrences = json.loads(response.content)
         self.assertEquals(1, len(occurrences))
         self.assertEquals(occurrences[0]["start"], new_start_date)
+
+class LlmViewTestCase(TestCase):
+    """
+    Tests for the Question ViewSet, especially when it comes to creating questions when the
+    queue has a quota and getting the number of questions asked within the quota period
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.semester = Semester.objects.create(year=2020, term=Semester.TERM_FALL)
+        self.course = Course.objects.create(
+            course_code="000", department="Test Class", semester=self.semester
+        )
+        self.llm_setting = LlmSetting.objects.create(course=self.course)
+        self.queue = Queue.objects.create(
+            name="Queue",
+            course=self.course,
+            rate_limit_enabled=True,
+            rate_limit_length=0,
+            rate_limit_minutes=20,
+            rate_limit_questions=1,
+        )
+        self.ta = User.objects.create(username="ta")
+        self.head_ta = User.objects.create(username="leadership")
+        self.student = User.objects.create(username="student")
+        self.student2 = User.objects.create(username="student2")
+        self.student3 = User.objects.create(username="student3")
+        Membership.objects.create(course=self.course, user=self.head_ta, kind=Membership.KIND_HEAD_TA)
+        Membership.objects.create(course=self.course, user=self.ta, kind=Membership.KIND_TA)
+        Membership.objects.create(
+            course=self.course, user=self.student, kind=Membership.KIND_STUDENT
+        )
+        Membership.objects.create(
+            course=self.course, user=self.student2, kind=Membership.KIND_STUDENT
+        )
+        self.question = Question.objects.create(
+            queue=self.queue, asked_by=self.student, text="Help me"
+        )
+        self.question.time_asked = timezone.now() - timedelta(days=1)
+        self.question.save()
+
+    def test_response(self):
+        self.client.force_authenticate(user=self.ta)
+        response = self.client.post("/api/courses/" + str(self.course.pk) + "/queues/" + str(self.queue.pk )+ "/questions/" + str(self.question.pk) + "/llm_response/")
+        self.assertTrue(len(response) > 0)
+        #print(response.content)
+
+    def test_change_prompt(self):
+        self.client.force_authenticate(user=self.head_ta)
+        self.client.patch(
+            "/api/courses/" + str(self.course.pk) + "/llm/", 
+            data = {
+                "input_prompt": "New Test prompt",
+                "temperature": 0.9
+
+            }
+        )
+        setting = LlmSetting.objects.get(pk=self.llm_setting.pk)
+        self.assertEqual("New Test prompt", setting.input_prompt)
+        self.assertEqual(0.9, setting.temperature)

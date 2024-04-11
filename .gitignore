@@ -34,3 +34,5 @@ node_modules/
 
 # Firebase credentials
 ohq-firebase-*.json
+
+backend/.env

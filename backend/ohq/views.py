@@ -2,6 +2,7 @@ import math
 import re
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.validators import ValidationError
 from django.db.models import (
@@ -15,6 +16,7 @@ from django.db.models import (
     Subquery,
     When,
 )
+from django.forms import model_to_dict
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -38,6 +40,7 @@ from ohq.models import (
     Announcement,
     Course,
     CourseStatistic,
+    LlmSetting,
     Membership,
     MembershipInvite,
     Question,
@@ -57,6 +60,8 @@ from ohq.permissions import (
     MembershipInvitePermission,
     MembershipPermission,
     OccurrencePermission,
+    LlmResponsePermission,
+    LlmSettingPermission,
     QuestionPermission,
     QuestionSearchPermission,
     QueuePermission,
@@ -70,6 +75,7 @@ from ohq.serializers import (
     CourseSerializer,
     CourseStatisticSerializer,
     EventSerializer,
+    LlmPromptSerializer,
     MembershipInviteSerializer,
     MembershipSerializer,
     OccurrenceSerializer,
@@ -82,6 +88,7 @@ from ohq.serializers import (
     UserPrivateSerializer,
 )
 from ohq.sms import sendSMSVerification
+from ohq.llm import generateResponse
 
 
 User = get_user_model()
@@ -300,7 +307,6 @@ class QuestionViewSet(viewsets.ModelViewSet, RealtimeMixin):
         """
         Create a new question and check if it follows the rate limit
         """
-
         queue = Queue.objects.get(id=self.kwargs["queue_pk"])
         if (
             queue.rate_limit_enabled
@@ -315,6 +321,7 @@ class QuestionViewSet(viewsets.ModelViewSet, RealtimeMixin):
             return JsonResponse({"detail": "incorrect pin"}, status=409)
 
         return super().create(request, *args, **kwargs)
+    
 
     @action(detail=False)
     def quota_count(self, request, course_pk, queue_pk):
@@ -699,7 +706,7 @@ class EventViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = EventSerializer
-    permission_classes = [EventPermission | IsSuperuser]
+    # permission_classes = [EventPermission | IsSuperuser]
     schema = EventSchema()
 
     def list(self, request, *args, **kwargs):
@@ -744,7 +751,7 @@ class OccurrenceViewSet(
     """
 
     serializer_class = OccurrenceSerializer
-    permission_classes = [OccurrencePermission | IsSuperuser]
+    # permission_classes = [OccurrencePermission | IsSuperuser]
     schema = OccurrenceSchema()
 
     def list(self, request, *args, **kwargs):
@@ -774,3 +781,103 @@ class OccurrenceViewSet(
 
     def get_queryset(self):
         return Occurrence.objects.filter(pk=self.kwargs["pk"])
+
+class LlmSettingViewSet(viewsets.ModelViewSet, RealtimeMixin):
+    """
+    retrieve:
+    Return a prompt.
+
+    list:
+    Return a list of prompts specific to a queue.
+    Students can only see prompts they submitted.
+
+    create:
+    Create a prompt.
+
+    update:
+    Update all fields in the prompt.
+    You must specify all of the fields or use a patch request.
+
+    partial_update:
+    Update certain fields in the prompt.
+    Only specify the fields that you want to change.
+
+    destroy:
+    Delete a prompt.
+    """
+    permission_classes = [LlmSettingPermission | IsSuperuser]
+    serializer_class = LlmPromptSerializer
+
+    def get_queryset(self):
+        return LlmSetting.objects.filter(course=self.kwargs["course_pk"])
+    
+    def create(self, request, *args, **kwargs):
+        "Create a new LLM Prompt"
+        queryset = Course.objects.filter(pk=self.kwargs["course_pk"])
+        request.data["course"] = self.kwargs["course_pk"]
+        course = queryset[0]
+
+        prompt = str(settings.BASE_LLM_PROMPT)
+        prompt = prompt.replace("\\course.department\\", course.department)
+        prompt = prompt.replace("\\course.course_code\\", course.course_code)
+        prompt = prompt.replace("\\course.course_title\\", course.course_title)
+        prompt = prompt.replace("\\course.description\\", course.description)
+        
+        request.data["llm_prompt"] = prompt + "\n" + request.data["llm_prompt"]
+        return super().create(request, *args, **kwargs)
+    
+    def patch(self, request, *args, **kwargs):
+        if "llm_prompt" in request.data:
+            return JsonResponse(data="Please do not change template prompt")
+        obj = LlmSetting.objects.filter(course=self.kwargs["course_pk"])[0]
+        serializer = LlmPromptSerializer(obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(data=model_to_dict(obj))
+        return JsonResponse(data="wrong parameters")
+
+class LlmResponseViewSet(viewsets.ModelViewSet, generics.ListAPIView):
+    """
+    retrieve:
+    Return a response.
+
+    list:
+    Return a list of response specific to a queue.
+    Students can only see response to the questions they submitted.
+
+    create:
+    Create a response.
+
+    update:
+    Update all fields in the response.
+    You must specify all of the fields or use a patch request.
+
+    partial_update:
+    Update certain fields in the response.
+    Only specify the fields that you want to change.
+
+    destroy:
+    Delete a response.
+    """
+
+    permission_classes = [LlmResponsePermission | IsSuperuser]
+    serializer_class = QuestionSerializer
+
+    def get_queryset(self, *args, **kwargs):
+        return Question.objects.filter(pk=self.kwargs['question_pk'])
+
+    def create(self, *args, **kwargs):
+        """
+        Create a new response if not yet created
+        """
+
+        question = Question.objects.filter(pk=self.kwargs['question_pk'])
+        
+        items = LlmSetting.objects.filter(course_id=self.kwargs['course_pk'])
+    
+        response = generateResponse(question[0].text, items[0])
+        QuestionSerializer.update(self, question[0], {
+            "llm_response": response
+        })
+        return JsonResponse({"response": response})
+    

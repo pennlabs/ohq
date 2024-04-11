@@ -171,6 +171,49 @@ class QuestionPermission(permissions.BasePermission):
         # With restrictions defined in has_object_permission
         return True
 
+class LlmSettingPermission(permissions.BasePermission):
+    """
+    Only Head TAs and Professor can view/edit the llm prompt
+    """
+
+    def has_permission(self, request, view):
+        membership = Membership.objects.filter(
+            course=view.kwargs["course_pk"], user=request.user
+        ).first()
+        return membership.is_leadership
+
+class LlmResponsePermission(permissions.BasePermission):
+    """
+    Students can retrieve the response
+    TAs+ can do anything to it
+    """
+
+    def has_object_permission(self, request, view, obj):
+        membership = Membership.objects.get(course=view.kwargs["course_pk"], user=request.user)
+        question = Question.objects.get(asked_by=request.user)
+
+        # Students and TAs+ can get llm responses to their questions
+        # Only LLM can edit response
+        if "retrieve" in view.action:
+            return question.asked_by == request.user or membership.is_ta or membership.is_leadership
+        return False
+
+    def has_permission(self, request, view):
+        # Anonymous users can't do anything
+        if not request.user.is_authenticated:
+            return False
+
+        membership = Membership.objects.filter(
+            course=view.kwargs["course_pk"], user=request.user
+        ).first()
+
+        # Non-Students can't do anything
+        if membership is None:
+            return False
+
+        # TAs+ can list questions
+        return membership.is_ta or membership.is_leadership
+
 
 class QuestionSearchPermission(permissions.BasePermission):
     """

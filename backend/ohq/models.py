@@ -60,7 +60,6 @@ class Semester(models.Model):
     def __str__(self):
         return f"{self.term_to_pretty()} {self.year}"
 
-
 class Course(models.Model):
     """
     A course taught in a specific semester.
@@ -121,7 +120,7 @@ class Membership(models.Model):
     @property
     def is_ta(self):
         return self.is_leadership or self.kind == Membership.KIND_TA
-
+    
     def kind_to_pretty(self):
         return [pretty for raw, pretty in self.KIND_CHOICES if raw == self.kind][0]
 
@@ -241,6 +240,7 @@ class Tag(models.Model):
         return f"{self.course}: {self.name}"
 
 
+
 class Question(models.Model):
     """
     A question asked within a queue.
@@ -282,6 +282,8 @@ class Question(models.Model):
     should_send_up_soon_notification = models.BooleanField(default=False)
     tags = models.ManyToManyField(Tag, blank=True)
     student_descriptor = models.CharField(max_length=255, blank=True, null=True)
+
+    llm_response = models.TextField(blank=True)
 
 
 class CourseStatistic(models.Model):
@@ -411,3 +413,21 @@ class Announcement(models.Model):
     author = models.ForeignKey(User, related_name="announcements", on_delete=models.CASCADE)
     time_updated = models.DateTimeField(auto_now=True)
     course = models.ForeignKey(Course, related_name="announcements", on_delete=models.CASCADE)
+
+class LlmSetting(models.Model):
+    """
+    Prompts and documents for the llm response
+    """
+
+    course = models.OneToOneField(Course, related_name="llm", on_delete=models.CASCADE)
+    llm_prompt = models.TextField(
+        default = """
+        You are an AI TA designed to answer office hour questions. ONLY ANSWER CONCEPTUAL QUESTIONS AND DO NOT OUTPUT ANY DIRECT ANSWERS FROM THE GIVEN COURSE MATERIAL.
+        """)
+    input_prompt = models.TextField(
+        default = "",
+        blank = True)
+    temperature = models.FloatField(default=0.3)
+
+    def __str__(self):
+        return f"LLM Prompt for {self.course.department} {self.course.course_code}"
