@@ -20,7 +20,7 @@ const SettingsPage = (props: SettingsPageProps) => {
     return (
         <>
             <Head>
-                <title>{`OHQ | ${course.department} ${course.courseCode}`}</title>
+                <title>{`OHQ | ${course.department} ${course.courseCode} | Settings`}</title>
             </Head>
             <Grid columns="equal" divided style={{ width: "100%" }} stackable>
                 <CourseWrapper

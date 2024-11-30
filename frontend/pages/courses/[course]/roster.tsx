@@ -26,7 +26,7 @@ const RosterPage = (props: RosterPageProps) => {
     return (
         <>
             <Head>
-                <title>{`OHQ | ${course.department} ${course.courseCode}`}</title>
+                <title>{`OHQ | ${course.department} ${course.courseCode} | Roster`}</title>
             </Head>
             <Grid columns="equal" divided style={{ width: "100%" }} stackable>
                 <CourseWrapper
