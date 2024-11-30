@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { Segment, Grid, Dropdown } from "semantic-ui-react";
 import { Course, Queue } from "../../../types";
 import Averages from "./Heatmaps/Averages";
 import SummaryCards from "./Cards/SummaryCards";
+import { AuthUserContext } from "../../../context/auth";
+import { useStaff } from "../../../hooks/data-fetching/course";
 
 interface AnalyticsProps {
     course: Course;
@@ -23,6 +25,15 @@ const Analytics = ({ course, queues }: AnalyticsProps) => {
         };
     });
 
+    const { user: initialUser } = useContext(AuthUserContext);
+    if (!initialUser) {
+        throw new Error(
+            "Invariant broken, withAuth must be used with component"
+        );
+    }
+
+    const { staff: isStaff } = useStaff(course.id, initialUser);
+
     return (
         <Grid.Row>
             {queueId ? (
@@ -36,8 +47,14 @@ const Analytics = ({ course, queues }: AnalyticsProps) => {
                             setQueueId(value as number);
                         }}
                     />
-                    <SummaryCards courseId={course.id} queueId={queueId} />
-                    <Averages courseId={course.id} queueId={queueId} />
+                    {isStaff && (
+                        <SummaryCards courseId={course.id} queueId={queueId} />
+                    )}
+                    <Averages
+                        courseId={course.id}
+                        queueId={queueId}
+                        isStaff={isStaff}
+                    />
                 </>
             ) : (
                 <Segment basic>

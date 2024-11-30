@@ -3,8 +3,6 @@ import { Grid } from "semantic-ui-react";
 import { NextPageContext } from "next";
 import CourseWrapper from "../../../components/Course/CourseWrapper";
 import { withAuth } from "../../../context/auth";
-import staffCheck from "../../../utils/staffcheck";
-import { withProtectPage } from "../../../utils/protectpage";
 import { doMultipleSuccessRequests } from "../../../utils/fetch";
 import { isLeadershipRole } from "../../../utils/enums";
 import nextRedirect from "../../../utils/redirect";
@@ -69,6 +67,4 @@ AnalyticsPage.getInitialProps = async (
     };
 };
 
-export default withProtectPage(withAuth(AnalyticsPage), (user, ctx) => {
-    return staffCheck(user, ctx);
-});
+export default withAuth(AnalyticsPage);

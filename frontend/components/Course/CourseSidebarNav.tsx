@@ -86,7 +86,7 @@ const CourseSidebarNav = (props: CourseSidebarProps) => {
                         />
                     </Link>
                 )}
-                {staff && (
+                {!course.archived && (
                     <Link
                         href="/courses/[course]/analytics"
                         as={`/courses/${courseId}/analytics`}
