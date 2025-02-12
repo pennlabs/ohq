@@ -1,7 +1,9 @@
+from datetime import datetime, timedelta
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase
 from django.utils import timezone
+from schedule.models import Calendar, Event, EventRelationManager
 
 from ohq.models import (
     Course,
@@ -13,6 +15,7 @@ from ohq.models import (
     QueueStatistic,
     Semester,
     Tag,
+    Occurrence,
 )
 
 
@@ -308,3 +311,62 @@ class QueueStatisticTestCase(TestCase):
             str(self.avg_time_helping_queue_statistic),
             f"{self.queue}: {self.avg_time_helping_queue_statistic.get_metric_display()}",
         )
+
+class OccurrenceTestCase(TestCase):
+    def setUp(self):
+        self.semester = Semester.objects.create(year=2020, term=Semester.TERM_SUMMER)
+        self.course = Course.objects.create(
+        course_code="000", department="Penn Labs", semester=self.semester
+    )
+        self.start_time = datetime.strptime("2021-12-05T12:41:37Z", "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
+        self.end_time = datetime.strptime("2021-12-06T12:41:37Z", "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc
+        )
+        self.default_calendar = Calendar.objects.create(name="DefaultCalendar")
+        self.event = Event.objects.create(
+            title="Event",
+            calendar=self.default_calendar,
+            rule=None,
+            start=self.start_time,
+            end=self.end_time,
+        )
+        erm = EventRelationManager()
+        erm.create_relation(event=self.event, content_object=self.course)
+        
+        self.occurrence = Occurrence.objects.create(
+            event=self.event,
+            start=self.start_time,
+            end=self.end_time,
+            original_start=self.start_time,
+            original_end=self.end_time,
+            interval=10,
+        )
+        self.occurrence.save()
+
+        self.bookings = self.occurrence.bookings.all()
+
+    
+    def test_occurrence_creates_bookings(self):
+        delta = self.end_time - self.start_time
+        delta_minutes = delta.total_seconds() / 60
+        booking_count = int(delta_minutes // self.occurrence.interval)
+        self.assertEqual(len(self.bookings), booking_count)
+
+    def test_occurrence_update_recreates_bookings(self):
+        old_bookings_count = len(self.bookings)
+        old_first_booking = self.occurrence.bookings.first()
+        old_last_booking = self.occurrence.bookings.last()
+
+        self.occurrence.start += timedelta(minutes=10)
+        self.occurrence.end += timedelta(minutes=30)
+        self.occurrence.save()
+        
+        new_bookings = self.occurrence.bookings.all()
+        new_first_booking = new_bookings.first()
+        new_last_booking = new_bookings.last()
+
+        self.assertNotEqual(old_bookings_count, len(new_bookings))
+        self.assertNotEqual(old_first_booking.start, new_first_booking.start)
+        self.assertNotEqual(old_last_booking.end, new_last_booking.end)

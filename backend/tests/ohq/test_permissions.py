@@ -18,6 +18,7 @@ from ohq.models import (
     Queue,
     Semester,
     Tag,
+    Occurrence,
 )
 
 
@@ -1321,4 +1322,96 @@ class OccurrenceTestCase(TestCase):
             "patch",
             reverse("ohq:occurrence-detail", args=[self.occurrence.id]),
             {"title": self.new_title, "courseId": self.course.id},
+        )
+
+class BookingTestCase(TestCase):
+    def setUp(self):
+        setUp(self)
+
+        self.start_time = datetime.strptime("2021-12-05T12:41:37Z", "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=pytz.utc
+        )
+        self.end_time = datetime.strptime("2021-12-06T12:41:37Z", "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=pytz.utc
+        )
+        self.default_calendar = Calendar.objects.create(name="DefaultCalendar")
+        self.event = Event.objects.create(
+            title="Event",
+            calendar=self.default_calendar,
+            rule=None,
+            start=self.start_time,
+            end=self.end_time,
+        )
+        erm = EventRelationManager()
+        erm.create_relation(event=self.event, content_object=self.course)
+        
+        self.occurrence = Occurrence.objects.create(
+            event=self.event,
+            start=self.start_time,
+            end=self.end_time,
+            original_start=self.start_time,
+            original_end=self.end_time,
+            interval=10,
+        )
+        self.occurrence.save()
+
+        self.booking = self.occurrence.bookings.first()
+
+        # Expected results
+        self.expected = {
+            "list": {
+                "professor": 200,
+                "head_ta": 200,
+                "ta": 200,
+                "student": 200,
+                "non_member": 403,
+                "anonymous": 403,
+            },
+            "retrieve": {
+                "professor": 200,
+                "head_ta": 200,
+                "ta": 200,
+                "student": 200,
+                "non_member": 403,
+                "anonymous": 403,
+            },
+            "modify": {
+                "professor": 200,
+                "head_ta": 200,
+                "ta": 200,
+                "student": 200,
+                "non_member": 403,
+                "anonymous": 403,
+            },
+        }
+
+    @parameterized.expand(users, name_func=get_test_name)
+    def test_list(self, user):
+        test(
+            self,
+            user,
+            "list",
+            "get",
+            reverse("ohq:booking-list") + f"?occurrence={self.occurrence.id}",
+        )
+
+    @parameterized.expand(users, name_func=get_test_name)
+    def test_retrieve(self, user):
+        test(
+            self,
+            user,
+            "retrieve",
+            "get",
+            reverse("ohq:booking-detail", args=[self.booking.id]),
+        )
+
+    @parameterized.expand(users, name_func=get_test_name)
+    def test_modify(self, user):
+        test(
+            self,
+            user,
+            "modify",
+            "patch",
+            reverse("ohq:booking-detail", args=[self.booking.id]),
+            {"user": self.student.id},
         )

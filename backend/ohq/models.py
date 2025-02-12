@@ -4,7 +4,9 @@ from django.db import models
 from django.dispatch import receiver
 from email_tools.emails import send_email
 from phonenumber_field.modelfields import PhoneNumberField
-
+from schedule.models import Event
+from django.urls import reverse
+from datetime import timedelta
 
 User = settings.AUTH_USER_MODEL
 
@@ -447,3 +449,179 @@ class UserStatistic(models.Model):
 
     def __str__(self):
         return f"{self.user}: {self.metric}"
+    
+class Occurrence(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, verbose_name=("event"), related_name="occurrences")
+    title = models.CharField(("title"), max_length=255, blank=True)
+    location = models.CharField(("location"), max_length=255, blank=True)
+    description = models.TextField(("description"), blank=True)
+    start = models.DateTimeField(("start"), db_index=True)
+    end = models.DateTimeField(("end"), db_index=True)
+    cancelled = models.BooleanField(("cancelled"), default=False)
+    original_start = models.DateTimeField(("original start"))
+    original_end = models.DateTimeField(("original end"))
+    created_on = models.DateTimeField(("created on"), auto_now_add=True)
+    updated_on = models.DateTimeField(("updated on"), auto_now=True)
+    interval = models.IntegerField(("interval"), blank=True, validators=[MinValueValidator(5), MaxValueValidator(60)])
+
+    class Meta:
+        verbose_name = ("occurrence")
+        verbose_name_plural = ("occurrences")
+        index_together = (("start", "end"),)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        event = kwargs.get("event", None)
+        if not self.title and event:
+            self.title = event.title
+        if not self.description and event:
+            self.description = event.description
+        if not self.location and event:
+            self.location = event.location
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        if self.pk: # If save is called on object update, not creation
+            self.bookings.all().delete()
+
+        delta = self.end - self.start
+        delta_minutes = delta.total_seconds() / 60
+        booking_count = int(delta_minutes // self.interval)
+        for i in range(booking_count):
+            booking_start = self.start + timedelta(minutes=i * self.interval)
+            booking_end = booking_start + timedelta(minutes=self.interval)
+            Booking.objects.create(
+                occurrence=self,
+                user=None,
+                start=booking_start,
+                end = booking_end,
+            )
+
+    def moved(self):
+        return self.original_start != self.start or self.original_end != self.end
+
+    moved = property(moved)
+
+    def move(self, new_start, new_end):
+        self.start = new_start
+        self.end = new_end
+        self.save()
+
+    def cancel(self):
+        self.cancelled = True
+        self.save()
+
+    def uncancel(self):
+        self.cancelled = False
+        self.save()
+
+    @property
+    def seconds(self):
+        return (self.end - self.start).total_seconds()
+
+    @property
+    def minutes(self):
+        return float(self.seconds) / 60
+
+    @property
+    def hours(self):
+        return float(self.seconds) / 3600
+
+    def get_absolute_url(self):
+        if self.pk is not None:
+            return reverse(
+                "occurrence",
+                kwargs={"occurrence_id": self.pk, "event_id": self.event_id},
+            )
+        return reverse(
+            "occurrence_by_date",
+            kwargs={
+                "event_id": self.event_id,
+                "year": self.start.year,
+                "month": self.start.month,
+                "day": self.start.day,
+                "hour": self.start.hour,
+                "minute": self.start.minute,
+                "second": self.start.second,
+            },
+        )
+
+    def get_cancel_url(self):
+        if self.pk is not None:
+            return reverse(
+                "cancel_occurrence",
+                kwargs={"occurrence_id": self.pk, "event_id": self.event_id},
+            )
+        return reverse(
+            "cancel_occurrence_by_date",
+            kwargs={
+                "event_id": self.event_id,
+                "year": self.start.year,
+                "month": self.start.month,
+                "day": self.start.day,
+                "hour": self.start.hour,
+                "minute": self.start.minute,
+                "second": self.start.second,
+            },
+        )
+
+    def get_edit_url(self):
+        if self.pk is not None:
+            return reverse(
+                "edit_occurrence",
+                kwargs={"occurrence_id": self.pk, "event_id": self.event_id},
+            )
+        return reverse(
+            "edit_occurrence_by_date",
+            kwargs={
+                "event_id": self.event_id,
+                "year": self.start.year,
+                "month": self.start.month,
+                "day": self.start.day,
+                "hour": self.start.hour,
+                "minute": self.start.minute,
+                "second": self.start.second,
+            },
+        )
+
+    def __str__(self):
+        start_str = self.start.strftime("%Y-%m-%d %H:%M:%S")
+        end_str = self.end.strftime("%Y-%m-%d %H:%M:%S")
+        return f"{start_str} to {end_str}"
+
+    def __lt__(self, other):
+        return self.end < other.end
+
+    def __hash__(self):
+        if not self.pk:
+            raise TypeError("Model instances without primary key value are unhashable")
+        return hash(self.pk)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Occurrence)
+            and self.original_start == other.original_start
+            and self.original_end == other.original_end
+        )
+
+class Booking(models.Model):
+    """
+    Booking within an occurrence
+    """
+
+    occurrence = models.ForeignKey(Occurrence, on_delete=models.CASCADE, related_name="bookings")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, blank=True, null=True)
+    start = models.DateTimeField("start", db_index=True)
+    end = models.DateTimeField("end", db_index=True)
+
+    class Meta:
+        verbose_name = ("booking")
+        verbose_name_plural = ("bookings")
+        ordering = ["start"]
+        index_together = (("start", "end"),)
+
+    def __str__(self):
+        start_str = self.start.strftime("%Y-%m-%d %H:%M:%S")
+        end_str = self.end.strftime("%Y-%m-%d %H:%M:%S")
+        return f"{start_str} to {end_str}"

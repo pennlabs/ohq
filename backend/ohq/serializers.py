@@ -8,7 +8,6 @@ from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 from rest_live.signals import save_handler
 from schedule.models import Calendar, Event, EventRelation, EventRelationManager, Rule
-from schedule.models.events import Occurrence
 
 from ohq.models import (
     Announcement,
@@ -22,6 +21,8 @@ from ohq.models import (
     QueueStatistic,
     Semester,
     Tag,
+    Occurrence,
+    Booking,
 )
 from ohq.sms import sendSMSVerification
 from ohq.tasks import sendUpNextNotificationTask
@@ -592,4 +593,16 @@ class OccurrenceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Occurrence
-        fields = ("id", "title", "description", "location", "start", "end", "cancelled", "event")
+        fields = ("id", "title", "description", "location", "start", "end", "cancelled", "event", "interval")
+
+class BookingSerializer(serializers.ModelSerializer):
+    """
+    Serializer for booking
+    """
+
+    occurrence = OccurrenceSerializer(read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = ("id", "occurrence", "user", "start", "end")  
+

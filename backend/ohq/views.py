@@ -46,6 +46,7 @@ from ohq.models import (
     QueueStatistic,
     Semester,
     Tag,
+    Booking,
 )
 from ohq.pagination import QuestionSearchPagination
 from ohq.permissions import (
@@ -63,6 +64,7 @@ from ohq.permissions import (
     QueuePermission,
     QueueStatisticPermission,
     TagPermission,
+    BookingPermission,
 )
 from ohq.schemas import EventSchema, MassInviteSchema, OccurrenceSchema
 from ohq.serializers import (
@@ -81,6 +83,7 @@ from ohq.serializers import (
     SemesterSerializer,
     TagSerializer,
     UserPrivateSerializer,
+    BookingSerializer,
 )
 from ohq.sms import sendSMSVerification
 
@@ -741,7 +744,7 @@ class OccurrenceViewSet(
     You must specify all of the fields or use a patch request.
 
     partial_update:
-    Update certain fields in the Occurrece.
+    Update certain fields in the Occurrence.
     """
 
     serializer_class = OccurrenceSerializer
@@ -749,7 +752,7 @@ class OccurrenceViewSet(
     schema = OccurrenceSchema()
 
     def list(self, request, *args, **kwargs):
-        # ensure timezone consitency
+        # ensure timezone consistency
         course_ids = request.GET.getlist("course")
         filter_start = datetime.strptime(
             request.GET.get("filter_start"), "%Y-%m-%dT%H:%M:%SZ"
@@ -775,3 +778,61 @@ class OccurrenceViewSet(
 
     def get_queryset(self):
         return Occurrence.objects.filter(pk=self.kwargs["pk"])
+
+class BookingViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    retrieve:
+    Return a Booking.
+
+    list:
+    You should pass in an occurrence id, and all the bookings related to that occurrence will be returned to you.
+    Return a list of bookings.
+
+    update:
+    Update all fields in a Booking.
+    You must specify all of the fields or use a patch request.
+
+    partial_update:
+    Update certain fields in the Booking.
+    """
+
+    serializer_class = BookingSerializer
+    permission_classes = [BookingPermission | IsSuperuser]
+    
+    def list(self,request, *args, **kwargs):
+        occurrence_id = request.GET.get("occurrence")
+        if occurrence_id is None:
+            raise ValidationError((f"Occurrence id is required."))
+    
+        try:
+            occurrence = Occurrence.objects.filter(id=occurrence_id).first()
+        except Occurrence.DoesNotExist:
+            return JsonResponse({"detail": "Occurrence not found."}, status=404)
+
+        existing_bookings = Booking.objects.filter(occurrence=occurrence).order_by("start")
+
+        serializer = BookingSerializer(existing_bookings, many=True)
+        return JsonResponse(serializer.data, safe=False)
+    
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        # Only the user field should be able to update
+        user = self.request.user
+        # Based on BookingPermission, you technically shouldn't be allowed to override another student if you're a student
+        self.user = user 
+
+        return JsonResponse(serializer.data, safe=False)
+        
+
+    def get_queryset(self):
+        return Booking.objects.filter(pk=self.kwargs["pk"])
