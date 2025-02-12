@@ -172,11 +172,6 @@ const QueueFormFields = ({
         }
         setInput({ ...input });
     };
-
-    const handlePinInputChange = (e, { checked }) => {
-        input.pinEnabled = checked;
-        setInput({ ...input });
-    };
     /* PROPS UPDATE */
 
     return (
@@ -246,7 +241,12 @@ const QueueFormFields = ({
                     id="pin-toggle"
                     toggle
                     disabled={loading}
-                    onChange={handlePinInputChange}
+                    onClick={() =>
+                        setInput({
+                            ...input,
+                            pinEnabled: !input.pinEnabled,
+                        })
+                    }
                 />
             </Form.Field>
 
@@ -261,9 +261,9 @@ const QueueFormFields = ({
                     name="rateLimitEnabled"
                     id="rate-limit-toggle"
                     toggle
-                    defaultChecked={input.rateLimitEnabled}
+                    checked={input.rateLimitEnabled}
                     label="Enable queue rate-limiting"
-                    onChange={() =>
+                    onClick={() =>
                         setInput({
                             ...input,
                             rateLimitEnabled: !input.rateLimitEnabled,
